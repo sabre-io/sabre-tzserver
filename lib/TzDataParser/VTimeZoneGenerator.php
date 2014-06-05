@@ -31,93 +31,149 @@ class VTimeZoneGenerator {
             'rules' => [],
         ];
 
-        $previousLine = null;
+        $lastLine = null;
         $lastOffset = null;
-        $newRule = null;
 
+        // Timezone data is split over two pieces of data:
+        // zone info and 'named rules'.
+        //
+        // The zone spans a time, the 'named rules' specify transitions within
+        // this time. To make things more interesting.. transitions can repeat.
+        // We are first mapping out just the zones, and the first occurence of
+        // every transition, and build from there.
         foreach($zoneInfo->rules as $zoneLine) {
 
-            if (!$previousLine) {
-                // this is the first line.
-                $previousLine = $zoneLine;
+            // The first 'line' is not really a zone beause there's no start
+            // date. We skip it, but keep the end date.
+            if (is_null($lastLine)) {
+                $lastLine = $zoneLine;
+                $lastOffset = $zoneLine->getOffset();
                 continue;
             }
 
-            $ruleStart = $previousLine->getUntil();
-            if (!is_null($newRule)) {
-                // Closing and saving the previous rule.
-                if (!isset($newRule['end'])) {
-                    $newRule['end'] = $ruleStart;
-                }
-                $newTzData['rules'][] = $newRule;
+            // If we didn't have an offset from a previous rule.. we just use
+            // the current offset.
+            if (is_null($lastOffset)) $lastOffset = $zoneLine->getOffset();
+
+            // When did the last rule end?
+            $zoneLineStart = $lastLine->getUntil();
+
+            // The start of a new zone means that any previous rules should get
+            // their until date set.
+            foreach($newTzData['rules'] as $rule) {
+                if (!$rule['until']) $rule['until'] = $zoneLineStart;
             }
-            // Making sure all previous rules have 'until' set to this point.
-            foreach($newTzData['rules'] as &$v){
-                if (!isset($v['until'])) $v['until'] = $ruleStart;
-            }
-            $newRule = [
-                'start' => $ruleStart,
-                'comment' => 'zone ' . $zoneInfo->name,
-                'isDst' => 0,
-            ];
-            if (is_null($lastOffset)) {
-                $newRule['offsetFrom'] = $zoneLine->getOffset();
-            } else {
-                $newRule['offsetFrom'] = $lastOffset;
-            }
-            $newRule['offsetTo'] = $zoneLine->getOffset();
-            $lastOffset = $zoneLine->getOffset();
 
-            if ($zoneLine->rules === '-') {
-                $namedRules = [];
-            } elseif (isset($this->parser->rules[$zoneLine->rules])) {
-                $namedRules = $this->parser->rules[$zoneLine->rules];
-            } else {
-                throw new Exception('Unknown named rule: ' .$zoneLine->rules);
-            }
-            foreach($namedRules as $namedRule) {
-
-                $namedRule->zoneContext = $zoneLine;
-
-                // Every 'named rule' represents a transition.
-                $ruleStart = $namedRule->getStartTime();
-                $ruleEnd = $namedRule->getEndTime();
-
-                // If the start of the rule is beyond the end of the zone, we
-                // can stop parsing rules.
-                if (!is_null($zoneLine->getUntil()) && $ruleStart > $zoneLine->getUntil()) {
-                    break;
-                }
-                // If the end of the rule is below the start of the current 
-                // zone, we should just skip the rule.
-                if (!is_null($ruleEnd) && $ruleEnd < $newRule['start']) {
-                    continue;
-                }
-
-                // Saving the old rule.
-                if (!isset($newRule['end'])) {
-                    $newRule['end'] = $ruleStart;
-                }
-                $newTzData['rules'][] = $newRule;
-
-                // New rule starts here.
-                $newRule = [
-                    'start' => $ruleStart,
+            if ($zoneLine->rules==='-') {
+                // A simple case.. the zone just lasts until '$until'.
+                $newTzData['rules'][] = [
+                    'start' => $zoneLineStart,
+                    'end'   => $zoneLine->getUntil(),
+                    'until' => $zoneLine->getUntil(),
                     'offsetFrom' => $lastOffset,
-                    'offsetTo' => $namedRule->getOffset(),
-                    'comment' => 'namedrule ' . $namedRule->name,
-                    'isDst' => $namedRule->save!=='0',
-                    'end' => $ruleEnd, 
+                    'offsetTo' => $zoneLine->getOffset(),
+                    'comment' => 'dash',
                 ];
-                $lastOffset = $namedRule->getOffset();
+
+            } else {
+                // There are transitions!!
+                // First we check if there is a transition before the zone
+                // starts, because we will then use that as our 'start' data.
+                $transitions = $this->parser->rules[$zoneLine->rules];
+                foreach($transitions as $transition) {
+                    $transition->zoneContext = $zoneLine;
+                }
+
+                $firstTransition = null;
+                $mostRecent = null;
+                foreach($transitions as $tRule) {
+                    $occ = $transition->getMostRecentOccurenceSince($zoneLineStart);
+                    if (is_null($mostRecent) || $mostRecent < $occ) {
+                        $mostRecent = $occ;
+                        $firstTransition = $tRule;
+                    }
+                }
+
+                $firstRuleTransition = null;
+                // Going through all the transitions, and expanding their
+                // dates.
+                $addedRules = [];
+                foreach($transitions as $tRule) {
+                    $newRule = [
+                        'start' => $tRule->getStartTime(),
+                        'end'   => null,
+                        'until' => $tRule->getEndTime(),
+                        'offsetFrom' => $lastOffset,
+                        'offsetTo' => $tRule->getOffset(),
+                        'comment' => $tRule->name,
+                        //'tRule' => $tRule,
+                    ];
+                    if (!is_null($zoneLine->getUntil()) && $newRule['start'] > $zoneLine->getUntil()) {
+                        // The rule starts after the zone.. pointless to
+                        // continue.
+                        break;
+                    }
+                    if (is_null($firstRuleTransition) && $newRule['start'] < $firstRuleTransition) {
+                        $firstRuleTransition = $newRule['start'];
+                    }
+                    $addedRules[] = $newRule;
+
+                }
+
+                // No rules fell into this zone.
+                if (!count($addedRules)) {
+                    $newTzData['rules'][] = [
+                        'start' => $zoneLineStart,
+                        'end'   => $zoneLine->getUntil(),
+                        'until' => $zoneLine->getUntil(),
+                        'offsetFrom' => $lastOffset,
+                        'offsetTo' => $zoneLine->getOffset(),
+                        'comment' => 'no-rules',
+                    ];
+
+                } else {
+
+                    // If this is the very first zone, we need to preamble the
+                    // data
+                    if(!$firstRuleTransition && !$newTzData['rules']) {
+                        $newTzData['rules'][] = [
+                            'start' => $zoneLineStart,
+                            'end'   => $firstRuleTransition,
+                            'until' => $firstRuleTransition,
+                            'offsetFrom' => $lastOffset,
+                            'offsetTo' => $zoneLine->getOffset(),
+                            'comment' => 'zone-preamble',
+                        ];
+                    }
+
+                    foreach($addedRules as $addedRule) {
+
+                        if ($addedRule['start'] < $zoneLineStart) {
+                            $addedRule['start'] = $zoneLineStart;
+                        }
+                        // Finding the 'end' for every rule.
+                        // At the very least, it should end when the zone ends.
+                        $endTime = $zoneLine->getUntil();
+                        foreach($transitions as $transition) {
+                            $occ = $transition->getNextOccurenceAfter($addedRule['start']);
+                            if (is_null($endTime) || $occ < $endTime) {
+                                $endTime = $occ;
+                            }
+                        }
+                        $addedRule['end'] = $endTime;
+                        $newTzData['rules'][] = $addedRule;
+
+                    }
+
+
+                }
 
             }
-
-            $previousLine = $zoneLine;
+            $lastLine = $zoneLine;
+            $lastOffset = $zoneLine->getOffset();
 
         }
 
-        $newTzData['rules'][] = $newRule;
         $this->prettyPrint($newTzData);
 
     }
@@ -149,13 +205,16 @@ class VTimeZoneGenerator {
                 echo "forever            ";
             }
             echo " " . $formatOffset($rule['offsetFrom']) . ' -> ' . $formatOffset($rule['offsetTo']) . " ";
+            /*
             echo "repeat until ";
             if (isset($rule['until'])) {
                 echo gmdate("Y-m-d H:i:s", $rule['until']);
             } else {
                 echo "forever            ";
             }
-            echo " " . $rule['comment'] . "\n";
+             */
+            echo " " . $rule['comment'];
+            echo "\n";
         }
 
     }

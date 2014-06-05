@@ -50,9 +50,71 @@ class Rule extends TZDataObj {
     }
 
     /**
-     * Calculates the rule offset. 
-     * 
-     * @return int 
+     * Finds the most recent timestamp, starting counting from the given
+     * timestamp.
+     *
+     * If there was no occurence (transition) before the timestamp, null is
+     * returned.
+     *
+     * @param int $timeStamp
+     * @return void
+     */
+    public function getMostRecentOccurenceSince($timeStamp) {
+
+        $startTime = $this->getStartTime();
+        if ($timeStamp < $startTime) {
+            return null;
+        }
+        $year = date('Y', $timeStamp);
+        while(true) {
+
+            $occurence = $this->getOccurenceTime($year);
+            if ($occurence < $timeStamp) {
+                return $occurence;
+            }
+            $year--;
+            if ($year < $this->from) {
+                throw new Exception('This normally should not happen.');
+            }
+
+        }
+
+    }
+    /**
+     * Finds the next occurence, right after the given timestamp.
+     * If there is no occurence after the timestamp, return null.
+     *
+     * @param int $timeStamp
+     * @return void
+     */
+    public function getNextOccurenceAfter($timeStamp) {
+
+        $endTime = $this->getEndTime();
+        $startTime = $this->getStartTime();
+        if ($timeStamp > $endTime) {
+            return null;
+        }
+
+        $year = date('Y', $timeStamp > $startTime?$startTime:$timeStamp);
+        while(true) {
+
+            $occurence = $this->getOccurenceTime($year);
+            if ($occurence > $timeStamp) {
+                return $occurence;
+            }
+            $year++;
+            if ($year > $this->to) {
+                return null;
+            }
+
+        }
+
+    }
+
+    /**
+     * Calculates the rule offset.
+     *
+     * @return int
      */
     public function getOffset() {
 
@@ -82,7 +144,7 @@ class Rule extends TZDataObj {
                 $ord = 'third';
             } else {
                 throw new exception('error calculating ' . $this->on);
-            } 
+            }
             $dt = new DateTime($ord . ' '.strtolower($matches[1]).' of ' . $this->in . ' ' . $year, new DateTimeZone('UTC'));
             if($dt->format('d') < $minDay) {
                 $dt->modify('+1 week');
