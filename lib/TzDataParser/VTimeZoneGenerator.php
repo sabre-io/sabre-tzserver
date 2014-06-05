@@ -2,6 +2,8 @@
 
 namespace Sabre\TzServer\TzDataParser;
 
+use DateTime;
+use DateTimeZone;
 use Exception;
 use Sabre\VObject\Component\VCalendar;
 use Sabre\VObject\Component;
@@ -23,72 +25,138 @@ class VTimeZoneGenerator {
         }
 
         $zoneInfo = $this->parser->zones[$tzid];
-        $until = null;
-        $lastTzBlock = null;
 
-        $vcal = new VCalendar();
-        $vtimezone = $vcal->add('VTIMEZONE', [
-            'TZID' => $zoneInfo['name'],
-        ]);
+        $newTzData = [
+            'name'  => $zoneInfo->name,
+            'rules' => [],
+        ];
 
+        $previousLine = null;
+        $lastOffset = null;
+        $newRule = null;
 
-        foreach($zoneInfo['rules'] as $zoneLine) {
+        foreach($zoneInfo->rules as $zoneLine) {
 
-            $start = $until;
-            $until = $zoneLine->getUntil();
-
-            if (is_null($start)) {
+            if (!$previousLine) {
+                // this is the first line.
+                $previousLine = $zoneLine;
                 continue;
             }
 
-            $newOffset = $zoneLine->getOffset();
-
-            $lastOffset = isset($lastTzBlock)?(string)$lastTzBlock->TZOFFSETTO:$newOffset;
-
-            $tzBlock = new Component($vcal, 'STANDARD', [
-                'DTSTART' => gmdate('Ymd\\THis', $start),
-                'TZOFFSETFROM' => $lastOffset,
-                'TZOFFSETTO' => $newOffset, 
-            ]);
-            $vtimezone->add($tzBlock);
-
-            if (!isset($this->parser->rules[$zoneLine->rules])) {
-                throw new Exception('Could not find ruleset:' . $zoneLine->rules);
+            $ruleStart = $previousLine->getUntil();
+            if (!is_null($newRule)) {
+                // Closing and saving the previous rule.
+                if (!isset($newRule['end'])) {
+                    $newRule['end'] = $ruleStart;
+                }
+                $newTzData['rules'][] = $newRule;
             }
+            // Making sure all previous rules have 'until' set to this point.
+            foreach($newTzData['rules'] as &$v){
+                if (!isset($v['until'])) $v['until'] = $ruleStart;
+            }
+            $newRule = [
+                'start' => $ruleStart,
+                'comment' => 'zone ' . $zoneInfo->name,
+                'isDst' => 0,
+            ];
+            if (is_null($lastOffset)) {
+                $newRule['offsetFrom'] = $zoneLine->getOffset();
+            } else {
+                $newRule['offsetFrom'] = $lastOffset;
+            }
+            $newRule['offsetTo'] = $zoneLine->getOffset();
+            $lastOffset = $zoneLine->getOffset();
 
-            foreach($this->parser->rules[$zoneLine->rules] as $rule) {
+            if ($zoneLine->rules === '-') {
+                $namedRules = [];
+            } elseif (isset($this->parser->rules[$zoneLine->rules])) {
+                $namedRules = $this->parser->rules[$zoneLine->rules];
+            } else {
+                throw new Exception('Unknown named rule: ' .$zoneLine->rules);
+            }
+            foreach($namedRules as $namedRule) {
 
-                $ruleStartTime = $rule->getStartTime();
+                $namedRule->zoneContext = $zoneLine;
 
-                if ($ruleStartTime > $until) {
-                    // The rule only goes in effect after this line in the zone 
-                    // has already ended... so we stop parsing rules.
+                // Every 'named rule' represents a transition.
+                $ruleStart = $namedRule->getStartTime();
+                $ruleEnd = $namedRule->getEndTime();
+
+                // If the start of the rule is beyond the end of the zone, we
+                // can stop parsing rules.
+                if (!is_null($zoneLine->getUntil()) && $ruleStart > $zoneLine->getUntil()) {
                     break;
                 }
-                if ($ruleStartTime > $start) {
-                    $tzBlock->DTEND = gmdate('Ymd\\THis', $ruleStartTime);
-                    $lastTzBlock = $tzBlock;
-
-                    $componentType = $rule->isDst()?'DAYLIGHT':'STANDARD'; 
-
-                    $tzBlock = new Component($vcal, $componentType, [
-                        'DTSTART' => gmdate('Ymd\\THis', $ruleStartTime),
-                        'TZOFFSETFROM' => (string)$lastTzBlock->TZOFFSETTO,
-                        'TZOFFSETTO' => $rule->calculateNewOffset($zoneLine->getOffset(), true),
-                    ]);
-                    $vtimezone->add($tzBlock);
-
-                } else {
-                    die('Don\'t know what to do');
+                // If the end of the rule is below the start of the current 
+                // zone, we should just skip the rule.
+                if (!is_null($ruleEnd) && $ruleEnd < $newRule['start']) {
+                    continue;
                 }
+
+                // Saving the old rule.
+                if (!isset($newRule['end'])) {
+                    $newRule['end'] = $ruleStart;
+                }
+                $newTzData['rules'][] = $newRule;
+
+                // New rule starts here.
+                $newRule = [
+                    'start' => $ruleStart,
+                    'offsetFrom' => $lastOffset,
+                    'offsetTo' => $namedRule->getOffset(),
+                    'comment' => 'namedrule ' . $namedRule->name,
+                    'isDst' => $namedRule->save!=='0',
+                    'end' => $ruleEnd, 
+                ];
+                $lastOffset = $namedRule->getOffset();
 
             }
 
-            $lastTzBlock = $tzBlock;
+            $previousLine = $zoneLine;
 
         }
 
-        echo $vtimezone->serialize();
+        $newTzData['rules'][] = $newRule;
+        $this->prettyPrint($newTzData);
+
+    }
+
+    function prettyPrint($newTzData) {
+
+        $formatOffset = function($offsetTime) {
+
+            $str = $offsetTime<0?'-':'+';
+            $offsetTime = abs($offsetTime);
+
+            $hours = floor($offsetTime/3600);
+            $minutes = floor(($offsetTime / 60) % 60);
+            $seconds = $offsetTime % 60;
+
+            $str.=sprintf('%02d%02d', $hours, $minutes);
+            if ($seconds>0) $str.=sprintf('%02d', $seconds);
+
+            return $str;
+
+        };
+
+        echo $newTzData['name'], "\n\n";
+        foreach($newTzData['rules'] as $rule) {
+            echo gmdate("Y-m-d H:i:s", $rule['start']) . ' until ';
+            if (isset($rule['end'])) {
+                echo gmdate("Y-m-d H:i:s", $rule['end']);
+            } else {
+                echo "forever            ";
+            }
+            echo " " . $formatOffset($rule['offsetFrom']) . ' -> ' . $formatOffset($rule['offsetTo']) . " ";
+            echo "repeat until ";
+            if (isset($rule['until'])) {
+                echo gmdate("Y-m-d H:i:s", $rule['until']);
+            } else {
+                echo "forever            ";
+            }
+            echo " " . $rule['comment'] . "\n";
+        }
 
     }
 

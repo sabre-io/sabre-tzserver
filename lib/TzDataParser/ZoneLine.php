@@ -10,11 +10,11 @@ class ZoneLine extends TZDataObj {
     public $until; 
 
     /**
-     * Returns the 'until' time as a unix timestamp in local time.
+     * Returns the 'until' time as a unix timestamp.
      */
     public function getUntil() {
 
-        return $this->parseTime($this->until);
+        return $this->parseTime($this->until, $this->getOffset());
 
     }
 

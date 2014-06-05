@@ -118,7 +118,7 @@ class Parser {
                 
             }
         } while($until);
-        $this->zones[$zone['name']] = $zone;
+        $this->zones[$zone['name']] = new Zone($zone);
 
     }
 

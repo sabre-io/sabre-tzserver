@@ -25,4 +25,4 @@ foreach($inputFiles as $inputFile) {
 }
 
 $vtimezoneGenerator = new TzDataParser\VTimeZoneGenerator($parser);
-$vtimezoneGenerator->generate('Europe/Amsterdam');
+$vtimezoneGenerator->generate('America/Chicago');

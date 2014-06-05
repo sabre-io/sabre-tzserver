@@ -23,31 +23,22 @@ abstract class TZDataObj{
      * Almost every component is optional and will default to 1 for day and
      * month, 0 for hour and minute.
      *
-     * Returns a timestamp *in local time*.
-     *
      * @param string $timeString
+     * @param int $offset
      * @return int
      */
-    protected function parseTime($timeString) {
+    protected function parseTime($timeString, $offSet) {
 
         if (!$timeString) return null;
-        if (!preg_match('/^([0-9]{4})(?:\W)?([A-Za-z]{3})?(?:\W)*([0-9]+)?(?:\W)*([0-9]:[0-9]+)?(:[0-9]+)?$/', trim($timeString), $matches)) {
-            echo "Unknown timeString: " . $timeString . "\n";
+
+        if (!preg_match('# ^ ([0-9]{4}) (?:\W)? ([A-Za-z]{3})? (?:\W)* ([0-9]+)? (?:\W)* ([0-9]{1,2}:[0-9]{1,2})? (:[0-9]+)?$ #x', trim($timeString), $matches)) {
+            throw new Exception('Unknown timeString: "' . trim($timeString) . '"');
             return null;
         }
 
         $month = 1;
         if (isset($matches[2])) {
-            $monthMap = [
-                'Apr' => 4,
-                'May' => 5,
-                'Jul' => 7,
-            ];
-            if (isset($monthMap[$matches[2]])) {
-                $month = $monthMap[$matches[2]];
-            } else {
-                echo "Unknown month: $matches[2] !\n";
-            }
+            $month = $this->getMonth($matches[2]);
         }
 
         $time = isset($matches[4]) && $matches[4] ? $matches[4] : '00:00';
@@ -56,7 +47,7 @@ abstract class TZDataObj{
 
         // Even though time() works with UTC, our timestamps are actually local
         // timestamps.
-        return gmmktime(
+        $time = gmmktime(
             $time[0],
             $time[1],
             $time[2],
@@ -64,6 +55,8 @@ abstract class TZDataObj{
             isset($matches[3])?$matches[3]:1,
             $matches[1]
         );
+
+        return $time - $offSet;
 
     }
 
@@ -136,13 +129,17 @@ abstract class TZDataObj{
     protected function getMonth($str) {
 
         $monthMap = [
+            'Jan' => 1,
+            'Feb' => 2,
             'Mar' => 3,
             'Apr' => 4,
             'May' => 5,
             'Jun' => 6,
             'Jul' => 7,
-            'Sep' => 9, 
+            'Aug' => 8,
+            'Sep' => 9,
             'Oct' => 10,
+            'Nov' => 11,
         ];
         if (isset($monthMap[$str])) {
             return $monthMap[$str];
