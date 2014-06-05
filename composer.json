@@ -1,0 +1,19 @@
+{
+    "name": "sabre/tzserver",
+    "description": "Timezone server",
+    "require": {
+        "sabre/vobject": "~3.2"
+    },
+    "license": "BSD-3-Clause",
+    "authors": [
+        {
+            "name": "Evert Pot",
+            "email": "me@evertpot.com"
+        }
+    ],
+    "autoload" : {
+        "psr-4" : {
+            "Sabre\\TzServer\\" : "lib/"
+        }
+    }
+}
