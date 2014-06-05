@@ -1,0 +1,9 @@
+# Composer
+/vendor
+/composer.lock
+
+# Timezone data
+/bin/tzdata
+
+# ViM
+.*.swp
