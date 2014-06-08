@@ -7,3 +7,6 @@
 
 # ViM
 .*.swp
+
+# Tests
+tests/cov
