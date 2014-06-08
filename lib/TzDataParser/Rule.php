@@ -6,10 +6,31 @@ use Exception;
 use DateTime;
 use DateTimeZone;
 
+/**
+ * A rule is a transition. It changes from one timezone specification to
+ * another.
+ *
+ * It often just represents the change between DST and non-DST, but many other
+ * situations are captured by these rules.
+ */
 class Rule extends TZDataObj {
 
+    /**
+     * Name of the rule such as "Chicago"
+     */
     public $name;
+
+    /**
+     * Year when the transition happens.
+     */
     public $from;
+
+    /**
+     * If the rule repeats, this will contain the end year.
+     *
+     * If the rule does not repeat, this will contain the string 'only'.
+     * If the rule repeats forever, this will contain 'max'.
+     */
     public $to;
     public $type;
     public $in;
@@ -206,7 +227,7 @@ class Rule extends TZDataObj {
             case '' :
                 // Wall time. Deduct offset and dst.
                 $at -= $this->zoneContext->getOffset();
-                $at -= $this->parseOffset($this->save);
+                //$at -= $this->parseOffset($this->save);
                 break;
             case 's' :
                 // Standard time. Deduct offset
