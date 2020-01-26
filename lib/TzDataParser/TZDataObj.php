@@ -27,7 +27,7 @@ abstract class TZDataObj
      *
      * @return int
      */
-    protected function parseTime($timeString, $offSet)
+    protected function parseTime($timeString, $offset)
     {
         if (!$timeString) {
             return null;
@@ -59,7 +59,7 @@ abstract class TZDataObj
             $matches[1]
         );
 
-        return $time - $offSet;
+        return $time - $offset;
     }
 
     /**
@@ -73,7 +73,8 @@ abstract class TZDataObj
      * Returns the offset in seconds from GMT.
      *
      * @param string $offsetString
-     * @param int
+     *
+     * @return int
      */
     protected function parseOffset($offsetString)
     {
