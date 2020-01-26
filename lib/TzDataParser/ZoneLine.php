@@ -2,20 +2,19 @@
 
 namespace Sabre\TzServer\TzDataParser;
 
-class ZoneLine extends TZDataObj {
-
+class ZoneLine extends TZDataObj
+{
     public $gmtoff;
     public $rules;
     public $format;
-    public $until; 
+    public $until;
 
     /**
      * Returns the 'until' time as a unix timestamp.
      */
-    public function getUntil() {
-
+    public function getUntil()
+    {
         return $this->parseTime($this->until, $this->getOffset());
-
     }
 
     /**
@@ -23,10 +22,8 @@ class ZoneLine extends TZDataObj {
      *
      * @return int
      */
-    public function getOffset() {
-
+    public function getOffset()
+    {
         return $this->parseOffset($this->gmtoff);
-
     }
-
 }

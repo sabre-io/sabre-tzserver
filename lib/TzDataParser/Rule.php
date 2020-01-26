@@ -2,9 +2,9 @@
 
 namespace Sabre\TzServer\TzDataParser;
 
-use Exception;
 use DateTime;
 use DateTimeZone;
+use Exception;
 
 /**
  * A rule is a transition. It changes from one timezone specification to
@@ -13,10 +13,10 @@ use DateTimeZone;
  * It often just represents the change between DST and non-DST, but many other
  * situations are captured by these rules.
  */
-class Rule extends TZDataObj {
-
+class Rule extends TZDataObj
+{
     /**
-     * Name of the rule such as "Chicago"
+     * Name of the rule such as "Chicago".
      */
     public $name;
 
@@ -46,28 +46,27 @@ class Rule extends TZDataObj {
      *
      * Returned in UTC.
      */
-    public function getStartTime() {
-
+    public function getStartTime()
+    {
         return $this->getOccurenceTime($this->from);
-
     }
 
     /**
-     * Returns the last occurence of the rule
+     * Returns the last occurence of the rule.
      *
      * Returned in UTC.
      */
-    public function getEndTime() {
-
+    public function getEndTime()
+    {
         $year = $this->to;
-        if ($year==='only') {
+        if ('only' === $year) {
             $year = $this->from;
         }
-        if ($year==='max') {
+        if ('max' === $year) {
             return null;
         }
-        return $this->getOccurenceTime($year);
 
+        return $this->getOccurenceTime($year);
     }
 
     /**
@@ -78,58 +77,55 @@ class Rule extends TZDataObj {
      * returned.
      *
      * @param int $timeStamp
+     *
      * @return void
      */
-    public function getMostRecentOccurenceSince($timeStamp) {
-
+    public function getMostRecentOccurenceSince($timeStamp)
+    {
         $startTime = $this->getStartTime();
         if ($timeStamp < $startTime) {
             return null;
         }
         $year = date('Y', $timeStamp);
-        while(true) {
-
+        while (true) {
             $occurence = $this->getOccurenceTime($year);
             if ($occurence < $timeStamp) {
                 return $occurence;
             }
-            $year--;
+            --$year;
             if ($year < $this->from) {
                 throw new Exception('This normally should not happen.');
             }
-
         }
-
     }
+
     /**
      * Finds the next occurence, right after the given timestamp.
      * If there is no occurence after the timestamp, return null.
      *
      * @param int $timeStamp
+     *
      * @return void
      */
-    public function getNextOccurenceAfter($timeStamp) {
-
+    public function getNextOccurenceAfter($timeStamp)
+    {
         $endTime = $this->getEndTime();
         $startTime = $this->getStartTime();
         if ($timeStamp > $endTime) {
             return null;
         }
 
-        $year = date('Y', $timeStamp > $startTime?$startTime:$timeStamp);
-        while(true) {
-
+        $year = date('Y', $timeStamp > $startTime ? $startTime : $timeStamp);
+        while (true) {
             $occurence = $this->getOccurenceTime($year);
             if ($occurence > $timeStamp) {
                 return $occurence;
             }
-            $year++;
+            ++$year;
             if ($year > $this->to) {
                 return null;
             }
-
         }
-
     }
 
     /**
@@ -137,19 +133,18 @@ class Rule extends TZDataObj {
      *
      * @return int
      */
-    public function getOffset() {
-
+    public function getOffset()
+    {
         return $this->zoneContext->getOffset() + $this->parseOffset($this->save);
-
     }
 
     /**
      * Returns an occurence of a transition in the specified year.
      */
-    protected function getOccurenceTime($year) {
-
+    protected function getOccurenceTime($year)
+    {
         if (!preg_match('#^ [0-9]{4} $ #x', $year)) {
-            throw new Exception('Invalid year field: ' . $year);
+            throw new Exception('Invalid year field: '.$year);
         }
         $month = $this->getMonth($this->in);
 
@@ -164,20 +159,20 @@ class Rule extends TZDataObj {
             } elseif ($minDay <= 21) {
                 $ord = 'third';
             } else {
-                throw new exception('error calculating ' . $this->on);
+                throw new exception('error calculating '.$this->on);
             }
-            $dt = new DateTime($ord . ' '.strtolower($matches[1]).' of ' . $this->in . ' ' . $year, new DateTimeZone('UTC'));
-            if($dt->format('d') < $minDay) {
+            $dt = new DateTime($ord.' '.strtolower($matches[1]).' of '.$this->in.' '.$year, new DateTimeZone('UTC'));
+            if ($dt->format('d') < $minDay) {
                 $dt->modify('+1 week');
             }
             $time = $dt->getTimeStamp();
         } elseif (preg_match('#^ last([A-Z][a-z]{2}) $#x', $this->on, $matches)) {
-            $time = strtotime('last '.strtolower($matches[1]).' of ' . $this->in . ' ' . $year);
+            $time = strtotime('last '.strtolower($matches[1]).' of '.$this->in.' '.$year);
         } else {
-            throw new \Exception('Unknown "on" format: ' . $this->on);
+            throw new \Exception('Unknown "on" format: '.$this->on);
         }
 
-        $time+=$this->getAt();
+        $time += $this->getAt();
 
         return $time;
     }
@@ -208,7 +203,7 @@ class Rule extends TZDataObj {
     }*/
 
     /**
-     * Returns the time of the day, in seconds from midnight, in utc
+     * Returns the time of the day, in seconds from midnight, in utc.
      *
      * Note that the number can be negative. The time of the day is always
      * positive in local time, but it could be a negative number of seconds
@@ -216,34 +211,30 @@ class Rule extends TZDataObj {
      *
      * @return int
      */
-    private function getAt() {
-
+    private function getAt()
+    {
         if (!preg_match('#^ ([0-9]{1,2}):([0-9]{2})(s|u)? $ #x', $this->at, $matches)) {
-            throw new Exception('Invalid "at" format: ' . $this->at);
+            throw new Exception('Invalid "at" format: '.$this->at);
         }
         $at = $matches[1] * 3600 + $matches[2] * 60;
-        switch(isset($matches[3])?$matches[3]:'') {
-
-            case '' :
+        switch (isset($matches[3]) ? $matches[3] : '') {
+            case '':
                 // Wall time. Deduct offset and dst.
                 $at -= $this->zoneContext->getOffset();
                 //$at -= $this->parseOffset($this->save);
                 break;
-            case 's' :
+            case 's':
                 // Standard time. Deduct offset
                 $at -= $this->zoneContext->getOffset();
                 break;
-            case 'u' :
+            case 'u':
                 // UTC.. do nothing
                 $at += $this->zoneContext->getOffset();
                 break;
-            default :
-                throw new \Exception('Unknown at postfix: ' . $matches[3]);
-
+            default:
+                throw new \Exception('Unknown at postfix: '.$matches[3]);
         }
 
         return $at;
-
     }
-
 }
