@@ -4,8 +4,9 @@ namespace Sabre\TzServer\TzDataParser;
 
 use DateTime;
 use DateTimeZone;
+use PHPUnit\Framework\TestCase;
 
-class RuleTest extends \PHPUnit_Framework_TestCase {
+class RuleTest extends TestCase {
 
     function getRule($yearUntil = 'only') {
 

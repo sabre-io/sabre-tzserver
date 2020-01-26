@@ -54,7 +54,7 @@ class Parser {
 
         if (count($line) < 9) {
             echo "Invalid rule: " . implode("--t--", $line);
-            break; 
+            return;
         }
         if (!isset($this->rules[$line[1]])) {
             $this->rules[$line[1]] = [];

@@ -10,3 +10,10 @@
 
 # Tests
 tests/cov
+coverage.xml
+
+# IDEs
+/.idea
+
+# development stuff
+.php_cs.cache
