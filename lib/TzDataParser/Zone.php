@@ -2,9 +2,8 @@
 
 namespace Sabre\TzServer\TzDataParser;
 
-class Zone extends TZDataObj {
-
+class Zone extends TZDataObj
+{
     public $name;
-    public $rules = []; 
-
+    public $rules = [];
 }

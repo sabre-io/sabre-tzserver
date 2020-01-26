@@ -5,18 +5,17 @@ namespace Sabre\TzServer\TzDataParser;
 use Exception;
 use InvalidArgumentException;
 
-abstract class TZDataObj{
-
-    public function __construct(array $ruleParts) {
-
-        foreach($ruleParts as $k=>$v) {
+abstract class TZDataObj
+{
+    public function __construct(array $ruleParts)
+    {
+        foreach ($ruleParts as $k => $v) {
             $this->$k = $v;
         }
-
     }
 
     /**
-     * Parses a date-time string in the format:
+     * Parses a date-time string in the format:.
      *
      * 2014 Jun 04 21:56:01
      *
@@ -24,15 +23,19 @@ abstract class TZDataObj{
      * month, 0 for hour and minute.
      *
      * @param string $timeString
-     * @param int $offset
+     * @param int    $offset
+     *
      * @return int
      */
-    protected function parseTime($timeString, $offSet) {
-
-        if (!$timeString) return null;
+    protected function parseTime($timeString, $offSet)
+    {
+        if (!$timeString) {
+            return null;
+        }
 
         if (!preg_match('# ^ ([0-9]{4}) (?:\W)? ([A-Za-z]{3})? (?:\W)* ([0-9]+)? (?:\W)* ([0-9]{1,2}:[0-9]{1,2})? (:[0-9]+)?$ #x', trim($timeString), $matches)) {
-            throw new Exception('Unknown timeString: "' . trim($timeString) . '"');
+            throw new Exception('Unknown timeString: "'.trim($timeString).'"');
+
             return null;
         }
 
@@ -42,7 +45,7 @@ abstract class TZDataObj{
         }
 
         $time = isset($matches[4]) && $matches[4] ? $matches[4] : '00:00';
-        $time.= isset($matches[5])?$matches[5]:':00';
+        $time .= isset($matches[5]) ? $matches[5] : ':00';
         $time = explode(':', $time);
 
         // Even though time() works with UTC, our timestamps are actually local
@@ -52,16 +55,15 @@ abstract class TZDataObj{
             $time[1],
             $time[2],
             $month,
-            isset($matches[3])?$matches[3]:1,
+            isset($matches[3]) ? $matches[3] : 1,
             $matches[1]
         );
 
         return $time - $offSet;
-
     }
 
     /**
-     * Parses an offset string in the format:
+     * Parses an offset string in the format:.
      *
      * -05:00:00
      * 03:00:00
@@ -73,61 +75,63 @@ abstract class TZDataObj{
      * @param string $offsetString
      * @param int
      */
-    protected function parseOffset($offsetString) {
-
-        if ($offsetString==='0') {
+    protected function parseOffset($offsetString)
+    {
+        if ('0' === $offsetString) {
             return 0;
         }
         if (!preg_match('#^ (-)? ([0-9]{1,2}) : ([0-9]{2}) (?: : ([0-9]{2}))? $ #x', $offsetString, $matches)) {
-            throw new Exception('Unknown offset string: ' .$offsetString);
+            throw new Exception('Unknown offset string: '.$offsetString);
         }
 
-        $time = isset($matches[4])?$matches[4]:0;
-        $time+=$matches[3]*60;
-        $time+=$matches[2]*3600;
+        $time = isset($matches[4]) ? $matches[4] : 0;
+        $time += $matches[3] * 60;
+        $time += $matches[2] * 3600;
 
-        if ($matches[1]==='-') {
-            $time = 0-$time;
+        if ('-' === $matches[1]) {
+            $time = 0 - $time;
         }
+
         return $time;
-
     }
 
     /**
-     * Formats an offset in seconds to the following format:
+     * Formats an offset in seconds to the following format:.
      *
      * +0100
      * -0500
      * +002705
      *
      * @param int $offsetTime
+     *
      * @return string
      */
-    protected function formatOffset($offsetTime) {
-
+    protected function formatOffset($offsetTime)
+    {
         if (!is_int($offsetTime)) {
             throw new InvalidArgumentException('offsetTime MUST be an integer');
         }
 
-        $str = $offsetTime<0?'-':'+';
+        $str = $offsetTime < 0 ? '-' : '+';
         $offsetTime = abs($offsetTime);
 
-        $hours = floor($offsetTime/3600);
+        $hours = floor($offsetTime / 3600);
         $minutes = floor(($offsetTime / 60) % 60);
         $seconds = $offsetTime % 60;
 
-        $str.=sprintf('%02d%02d', $hours, $minutes);
-        if ($seconds>0) $str.=sprintf('%02d', $seconds);
+        $str .= sprintf('%02d%02d', $hours, $minutes);
+        if ($seconds > 0) {
+            $str .= sprintf('%02d', $seconds);
+        }
 
         return $str;
-
     }
 
     /**
      * Returns the month number, based on a month string.
      */
-    protected function getMonth($str) {
-
+    protected function getMonth($str)
+    {
         $monthMap = [
             'Jan' => 1,
             'Feb' => 2,
@@ -145,7 +149,5 @@ abstract class TZDataObj{
             return $monthMap[$str];
         }
         throw new Exception("Unknown month: $str");
-
     }
-
 }
