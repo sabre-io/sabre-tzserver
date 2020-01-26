@@ -81,7 +81,6 @@ class Parser
                 print_r($line);
                 print_r($zone);
                 die();
-                break;
             }
             $until = null;
             if (isset($line[5])) {
