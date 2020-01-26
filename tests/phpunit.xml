@@ -4,11 +4,14 @@
   convertErrorsToExceptions="true"
   convertNoticesToExceptions="true"
   convertWarningsToExceptions="true"
-  strict="true"
+  beStrictAboutTestsThatDoNotTestAnything="true"
+  beStrictAboutOutputDuringTests="true"
   >
-  <testsuite name="Sabre\TzServer">
-      <directory>TZDataParser</directory>
-  </testsuite>
+  <testsuites>
+    <testsuite name="Sabre\TzServer">
+        <directory>TZDataParser</directory>
+    </testsuite>
+  </testsuites>
 
   <filter>
     <whitelist addUncoveredFilesFromWhitelist="true">
