@@ -1,0 +1,20 @@
+language: php
+php:
+  - 7.1
+  - 7.2
+  - 7.3
+  - 7.4
+
+matrix:
+  fast_finish: true
+
+install:
+  - composer require --dev phpstan/phpstan:^0.12
+
+before_script:
+  - composer install
+
+script:
+  - ./vendor/bin/php-cs-fixer fix lib/ --dry-run --diff
+  - ./vendor/bin/phpstan.phar analyse -c phpstan.neon lib
+  - ./vendor/bin/phpunit --configuration tests/phpunit.xml
