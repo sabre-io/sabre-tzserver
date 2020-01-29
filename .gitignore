@@ -10,6 +10,7 @@
 
 # Tests
 tests/cov
+tests/.phpunit.result.cache
 coverage.xml
 
 # IDEs
