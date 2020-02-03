@@ -5,16 +5,7 @@
 # Timezone data
 /bin/tzdata
 
-# ViM
-.*.swp
-
 # Tests
 tests/cov
 tests/.phpunit.result.cache
-coverage.xml
-
-# IDEs
-/.idea
-
-# development stuff
 .php_cs.cache
