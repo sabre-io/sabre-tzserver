@@ -9,7 +9,7 @@
   >
   <testsuites>
     <testsuite name="Sabre\TzServer">
-        <directory>TZDataParser</directory>
+        <directory>.</directory>
     </testsuite>
   </testsuites>
 
